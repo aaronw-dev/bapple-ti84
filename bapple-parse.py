@@ -12,28 +12,38 @@ def rle_encode(arr):
     return list(zip(values.tolist(), counts.tolist()))
 
 
-def save_rle_compact(rle, path):
-    with open(path, "wb") as f:
-        for value, count in rle:
-            if value == 0:
-                val_byte = 0
-            elif value == 127:
-                val_byte = 1
-            else:
-                val_byte = 2
+def write_frame_to_file(f, rle):
+    frame_data = bytearray()
+    for value, count in rle:
+        if value == 0:
+            val_byte = 0
+        elif value == 127:
+            val_byte = 1
+        else:
+            val_byte = 2
 
-            if count < 128:
-                f.write(bytes([val_byte, count]))
-            else:
-                f.write(
-                    bytes([val_byte | 0x80, count & 0xFF, (count >> 8) & 0xFF]))
+        if count < 128:
+            frame_data.extend([val_byte, count])
+        else:
+            frame_data.extend(
+                [val_byte | 0x80, count & 0xFF, (count >> 8) & 0xFF])
+
+    frame_size = len(frame_data)
+    f.write(frame_size.to_bytes(4, 'little'))
+    f.write(frame_data)
 
 
-def process_video(video_path, output_dir="./frames"):
-    os.makedirs(output_dir, exist_ok=True)
+def process_video(video_path, output_base="bapple_segment", segment_size=20*1024):
+    """Process video and split into segments of specified size (default 20KB)."""
     cap = cv2.VideoCapture(video_path)
     frame_idx = 0
     prev_frame = None
+    segment_idx = 0
+    current_segment_size = 0
+    current_segment_frames = []
+    all_frames_data = []
+
+    print(f"Processing video with {segment_size} byte segments...")
 
     while True:
         ret, frame = cap.read()
@@ -59,19 +69,73 @@ def process_video(video_path, output_dir="./frames"):
             changed_pixels = np.sum(changed_mask)
             total_pixels = bw.size
             change_percent = (changed_pixels / total_pixels) * 100
-            print(
-                f"Encoded frame {frame_idx} (DELTA: {changed_pixels}/{total_pixels} pixels changed, {change_percent:.1f}%)")
+            if frame_idx % 100 == 0:
+                print(
+                    f"Encoded frame {frame_idx} (DELTA: {changed_pixels}/{total_pixels} pixels changed, {change_percent:.1f}%)")
 
         rle = rle_encode(delta)
-        out_path = os.path.join(output_dir, f"frame_{frame_idx:05d}.bin")
-        save_rle_compact(rle, out_path)
+
+        # Encode frame data
+        frame_data = bytearray()
+        for value, count in rle:
+            if value == 0:
+                val_byte = 0
+            elif value == 127:
+                val_byte = 1
+            else:
+                val_byte = 2
+
+            if count < 128:
+                frame_data.extend([val_byte, count])
+            else:
+                frame_data.extend(
+                    [val_byte | 0x80, count & 0xFF, (count >> 8) & 0xFF])
+
+        frame_size = len(frame_data) + 4  # +4 for size header
+
+        # Check if adding this frame would exceed segment size
+        if current_segment_size + frame_size > segment_size and current_segment_frames:
+            # Save current segment
+            save_segment(output_base, segment_idx, current_segment_frames)
+            segment_idx += 1
+            current_segment_frames = []
+            current_segment_size = 0
+
+        # Add frame to current segment
+        current_segment_frames.append((frame_idx, frame_data))
+        current_segment_size += frame_size
 
         prev_frame = bw.copy()
         frame_idx += 1
 
+    # Save final segment if it has frames
+    if current_segment_frames:
+        save_segment(output_base, segment_idx, current_segment_frames)
+        segment_idx += 1
+
     cap.release()
-    print(f"Finished encoding {frame_idx} frames to {output_dir}/")
+    print(f"Finished encoding {frame_idx} frames into {segment_idx} segments")
+
+
+def save_segment(output_base, segment_idx, frames):
+    """Save a segment with its frames."""
+    filename = f"{output_base}{segment_idx}.bin"
+    with open(filename, "wb") as f:
+        # Write frame count in this segment
+        f.write(len(frames).to_bytes(4, 'little'))
+
+        # Write each frame
+        for frame_idx, frame_data in frames:
+            f.write(len(frame_data).to_bytes(4, 'little'))
+            f.write(frame_data)
+
+    file_size = os.path.getsize(filename)
+    start_frame = frames[0][0]
+    end_frame = frames[-1][0]
+    print(
+        f"Saved segment {segment_idx}: frames {start_frame}-{end_frame} ({file_size} bytes)")
 
 
 if __name__ == "__main__":
-    process_video("bapple_nano.mp4", "./frames")
+    process_video("bapple_atto.mp4", "SEGMENT",
+                  20*1024)  # 20KB segments
