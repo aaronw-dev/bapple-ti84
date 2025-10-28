@@ -101,7 +101,7 @@ screen = pygame.display.set_mode((framew, frameh))
 clock = pygame.time.Clock()
 running = True
 last_frame_time = time.time()
-targetfps = 5
+targetfps = 10
 frame_duration = 1/targetfps
 curframe = 0
 
