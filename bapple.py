@@ -29,17 +29,14 @@ def drawlines(start, end, color):
 
 
 def load_segment(segment_filename):
-    """Load frames from a single segment file."""
     frames = []
     try:
         with open(segment_filename, "rb") as f:
-            # Read frame count in this segment
             frame_count_bytes = f.read(4)
             if len(frame_count_bytes) != 4:
                 return []
             frame_count = int.from_bytes(frame_count_bytes, 'little')
 
-            # Read each frame
             for i in range(frame_count):
                 size_bytes = f.read(4)
                 if len(size_bytes) != 4:
@@ -69,10 +66,7 @@ class SimpleSegmentPlayer:
         print(f"Initialized simple segment player for {base_name}")
 
     def get_frame(self, global_frame_idx):
-        """Get frame data for specified global frame index."""
-        # Check if we need to load a new segment
         while global_frame_idx >= self.frames_loaded_so_far + len(self.current_segment_frames):
-            # We need the next segment
             self.frames_loaded_so_far += len(self.current_segment_frames)
             self.current_segment_idx += 1
 
@@ -80,10 +74,8 @@ class SimpleSegmentPlayer:
             self.current_segment_frames = load_segment(segment_filename)
 
             if not self.current_segment_frames:
-                # No more segments
                 return None
 
-        # Calculate frame offset within current segment
         frame_offset = global_frame_idx - self.frames_loaded_so_far
 
         if 0 <= frame_offset < len(self.current_segment_frames):
@@ -101,13 +93,12 @@ screen = pygame.display.set_mode((framew, frameh))
 clock = pygame.time.Clock()
 running = True
 last_frame_time = time.time()
-targetfps = 5
+targetfps = 10
 frame_duration = 1/targetfps
 curframe = 0
 
-# Initialize simple segment player
 player = SimpleSegmentPlayer("SEGMENT")
-numframes = 99999  # We'll stop when no more segments are found
+numframes = 99999
 
 current_frame = [[0 for _ in range(framew)] for _ in range(frameh)]
 

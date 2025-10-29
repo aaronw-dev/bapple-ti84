@@ -1,16 +1,12 @@
 :"BAPPLE"→Str1
-:0→S                   // Segment index
-:0→F                   // Global frame counter
+:0→S
+:0→F
 :20→W
 :16→H
-:16→SX                 // horizontal scale (320/20)
-:15→SY                 // vertical scale (240/16)
-:0→Done
-
+:16→A
+:15→B
 :ClrDraw
 :ClrHome
-:AxesOff
-:ZStandard
 :Disp "BAPPLE PLAYER"
 
 Lbl LOADSEG
@@ -20,14 +16,41 @@ Lbl LOADSEG
 :Stop
 :End
 
-:sub(Str1,1,6)+toString(S)→Str2
-:Disp "LOADING ",Str2
-:RecallData Str2→L1
-:length(L1)→Lsize
+:If S=0
+:Then
+:RecallData "BAPPLE0"
+:Else
+:If S=1
+:Then
+:RecallData "BAPPLE1"
+:Else
+:If S=2
+:Then
+:RecallData "BAPPLE2"
+:Else
+:If S=3
+:Then
+:RecallData "BAPPLE3"
+:Else
+:If S=4
+:Then
+:RecallData "BAPPLE4"
+:Else
+:If S=5
+:Then
+:RecallData "BAPPLE5"
+:End
+:End
+:End
+:End
+:End
+:End
+
 :0→I
+:length(L1)→Lsize
 
 Lbl FRAMELOOP
-:If I≥Lsize
+:If I>=Lsize
 :Then
 :S+1→S
 :Goto LOADSEG
@@ -36,54 +59,52 @@ Lbl FRAMELOOP
 :ClrDraw
 :0→P
 
-While I<Lsize
- L1(I+1)→V
- I+1→I
- If V≥128
- Then
-  V-128→Code
-  L1(I+1)+256*L1(I+2)→Count
-  I+2→I
- Else
-  V→Code
-  L1(I+1)→Count
-  I+1→I
- End
+:While I<Lsize
+:L1(I+1)→V
+:I+1→I
+:If V>=128
+:Then
+:V-128→Code
+:L1(I+1)+256*L1(I+2)→Count
+:I+2→I
+:Else
+:V→Code
+:L1(I+1)→Count
+:I+1→I
+:End
 
- If Code=0
- Then
-  0→Col
- ElseIf Code=1
-  127→Col
- Else
-  255→Col
- End
+:If Code=0
+:Then
+:0→Col
+:Else
+:If Code=1
+:Then
+:127→Col
+:Else
+:255→Col
+:End
+:End
 
- For(J,0,Count-1)
-  P+J→Pix
-  If Pix≥W*H
-  Then
-   Exit
-  End
-  int(Pix/W)→Y
-  Pix-W*Y→X
+:For(J,0,Count-1)
+:P+J→M
+:If M>=W*H
+:Then
+:Exit
+:End
+:int(M/W)→Y
+:M-W*Y→X
+:X*A→D
+:Y*B→E
+:D+A-1→F
+:E+B-1→G
+:If Col=255
+:Then
+:Line(D,E,F,G)
+:End
+:End
 
-  X*SX→X1
-  Y*SY→Y1
-  X1+SX-1→X2
-  Y1+SY-1→Y2
-
-  If Col=255
-  Then
-   Line(X1,Y1,X2,Y2)
-  Else
-   // Erase block by drawing in background color
-   // Simulate with Text(-1,"") or skip (black bg)
-  End
- End
-
- P+Count→P
-End
+:P+Count→P
+:End
 
 :DispGraph
 :Wait 0.2
